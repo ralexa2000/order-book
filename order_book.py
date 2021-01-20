@@ -53,3 +53,29 @@ class OrderBook:
             if order['order_id'] == order_id:
                 return True
         return False
+
+    def cancel_order(self, order_id: str) -> None:
+        """
+        Cancels an existing order
+
+        :param order_id: existing order id
+        :return: None
+        """
+        for i, order in enumerate(self.orders):
+            if order['order_id'] == order_id:
+                del self.orders[i]
+                del self.prices[i]
+                return
+        raise ValueError(f'Order_id \'{order_id}\' not found')
+
+    def get_order_info(self, order_id: str) -> typing.Dict:
+        """
+        Returns info about an order with given order_id
+
+        :param order_id: existing order id
+        :return: dict with info about the order
+        """
+        for order in self.orders:
+            if order['order_id'] == order_id:
+                return order
+        raise ValueError(f'Order_id \'{order_id}\' not found')

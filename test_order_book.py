@@ -25,7 +25,7 @@ def test_place_order_in_the_middle():
     """
     ob = OrderBook()
 
-    # place 10 orders with increasing prices
+    # first, place 10 orders with increasing prices
     expected_orders = []
     for i in range(1, 11):
         order = {
@@ -69,3 +69,71 @@ def test_place_unknown_order_type():
     ob = OrderBook()
     with pytest.raises(ValueError):
         ob.place_order('1', 1, 1, 'bed')
+
+
+def test_cancel_order():
+    """
+    Check that order cancels correctly
+    """
+    ob = OrderBook()
+
+    # first, place 10 orders with increasing prices
+    expected_orders = []
+    for i in range(1, 11):
+        order = {
+            'order_id': str(i),
+            'price': i,
+            'quantity': random.randint(1, 100),
+            'order_type': random.choice(['bid', 'ask'])
+        }
+        expected_orders.append(order)
+        ob.place_order(**order)
+
+    # cancel order
+    ob.cancel_order('6')
+    del expected_orders[5]
+    assert ob.orders == expected_orders
+    assert ob.prices == [o['price'] for o in expected_orders]
+
+
+def test_cancel_non_existing_order():
+    """
+    Check that method raises ValueError if order_id does not exist
+    (when there are no other orders, and when there are other orders with
+    different order_ids)
+    """
+    ob = OrderBook()
+    with pytest.raises(ValueError):
+        ob.cancel_order('1')
+    ob.place_order('1', 10, 2, 'ask')
+    with pytest.raises(ValueError):
+        ob.cancel_order('2')
+
+
+def test_get_order_info():
+    """
+    Check that method returns correct info about an order
+    """
+    ob = OrderBook()
+    order = {
+        'order_id': '10',
+        'price': random.randint(1, 10),
+        'quantity': random.randint(1, 100),
+        'order_type': random.choice(['bid', 'ask'])
+    }
+    ob.place_order(**order)
+    assert ob.get_order_info('10') == order
+
+
+def test_get_info_non_existing_order():
+    """
+    Check that method raises ValueError if order_id does not exist
+    (when there are no other orders, and when there are other orders with
+    different order_ids)
+    """
+    ob = OrderBook()
+    with pytest.raises(ValueError):
+        ob.get_order_info('1')
+    ob.place_order('1', 10, 2, 'ask')
+    with pytest.raises(ValueError):
+        ob.get_order_info('2')
