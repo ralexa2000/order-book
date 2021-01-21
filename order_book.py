@@ -99,9 +99,12 @@ class OrderBook:
         :param order_id: existing order id
         :return: dict with info about the order
         """
-        for order in self.asks + self.bids:
+        for order in self.asks:
             if order['order_id'] == order_id:
-                return order
+                return dict({'order_type': 'ask'}, **order)
+        for order in self.bids:
+            if order['order_id'] == order_id:
+                return dict({'order_type': 'bid'}, **order)
         raise ValueError(f'Order_id \'{order_id}\' not found')
 
     def get_market_data(self) -> typing.Dict:

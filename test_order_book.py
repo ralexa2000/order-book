@@ -151,9 +151,10 @@ def test_get_order_info(order_type):
     order = {
         'order_id': '10',
         'price': random.randint(1, 10),
-        'quantity': random.randint(1, 100)
+        'quantity': random.randint(1, 100),
+        'order_type': order_type
     }
-    ob.place_order(**order, order_type=order_type)
+    ob.place_order(**order)
     assert ob.get_order_info('10') == order
 
 
@@ -202,7 +203,7 @@ def place_orders_same_price(ob, price, n_orders, order_type):
     :param price: float
     :param n_orders: number of orders with the same price
     :param order_type: 'ask' or 'bid'
-    :return: total quantity of the places orders
+    :return: total quantity of the placed orders
     """
     quantity = 0
     for _ in range(n_orders):
@@ -274,3 +275,11 @@ def test_get_market_data():
     })
 
     assert ob.get_market_data() == expected_market_data
+
+
+def test_get_empty_market_data():
+    """
+    Check that method works correctly if there are no orders
+    """
+    ob = OrderBook()
+    assert ob.get_market_data() == {'asks': [], 'bids': []}
