@@ -4,19 +4,24 @@ import random
 from order_book import OrderBook
 
 
-def test_place_first_order():
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_place_first_order(order_type):
     """
     Place a first order into order book
     """
     ob = OrderBook()
-    ob.place_order('1', 10, 2, 'ask')
-    assert ob.orders == [{
+    order = {
         'order_id': '1',
-        'price': 10,
-        'quantity': 2,
-        'order_type': 'ask'
-    }]
-    assert ob.prices == [10]
+        'price': 10.5,
+        'quantity': 2
+    }
+    ob.place_order(**order, order_type=order_type)
+    if order_type == 'ask':
+        assert ob.asks == [order]
+        assert ob.bids == []
+    else:
+        assert ob.asks == []
+        assert ob.bids == [order]
 
 
 def test_place_order_in_the_middle():
@@ -25,41 +30,40 @@ def test_place_order_in_the_middle():
     """
     ob = OrderBook()
 
-    # first, place 10 orders with increasing prices
-    expected_orders = []
-    for i in range(1, 11):
+    # firstly, place 5 asks and 5 bids with increasing prices
+    expected_orders = {'ask': [], 'bid': []}
+    for i in range(1, 6):
+        for order_type in ('ask', 'bid'):
+            order = {
+                'order_id': f'{order_type} {i}',
+                'price': i,
+                'quantity': random.randint(1, 100)
+            }
+            ob.place_order(**order, order_type=order_type)
+            expected_orders[order_type].append(order)
+
+    # place 1 ask and 1 bid in the middle of orders list
+    for order_type in ('ask', 'bid'):
         order = {
-            'order_id': str(i),
-            'price': i,
-            'quantity': random.randint(1, 100),
-            'order_type': random.choice(['bid', 'ask'])
+            'order_id': f'{order_type} 6',
+            'price': 3.5,
+            'quantity': random.randint(1, 100)
         }
-        expected_orders.append(order)
-        ob.place_order(**order)
-        assert ob.orders == expected_orders
-        assert ob.prices == [o['price'] for o in expected_orders]
-
-    # place one order in the middle of the order_book
-    order = {
-        'order_id': '11',
-        'price': 6.5,
-        'quantity': random.randint(1, 100),
-        'order_type': random.choice(['bid', 'ask'])
-    }
-    ob.place_order(**order)
-    expected_orders.insert(6, order)
-    assert ob.orders == expected_orders
-    assert ob.prices == [o['price'] for o in expected_orders]
+        ob.place_order(**order, order_type=order_type)
+        expected_orders[order_type].insert(3, order)
+    assert ob.asks == expected_orders['ask']
+    assert ob.bids == expected_orders['bid']
 
 
-def test_place_duplicate_order_id():
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_place_duplicate_order_id(order_type):
     """
     Place an order with an id that already exists in the order book
     """
     ob = OrderBook()
-    ob.place_order('1', 10, 2, 'ask')
+    ob.place_order('1', 10, 2, order_type)
     with pytest.raises(ValueError):
-        ob.place_order('1', 11, 3, 'bid')
+        ob.place_order('1', 11, 3, order_type)
 
 
 def test_place_unknown_order_type():
@@ -71,32 +75,60 @@ def test_place_unknown_order_type():
         ob.place_order('1', 1, 1, 'bed')
 
 
-def test_cancel_order():
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_place_order_wrong_price_type(order_type):
+    """
+    Check that price could not be negative or zero
+    """
+    ob = OrderBook()
+    with pytest.raises(ValueError):
+        ob.place_order('1', -2, 2, order_type)
+    with pytest.raises(ValueError):
+        ob.place_order('1', 0, 2, order_type)
+
+
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_place_order_wrong_quantity_type(order_type):
+    """
+    Check that quantity could not be negative, zero or float
+    """
+    ob = OrderBook()
+    with pytest.raises(ValueError):
+        ob.place_order('1', 10.5, -4, order_type)
+    with pytest.raises(ValueError):
+        ob.place_order('1', 10.5, 0, order_type)
+    with pytest.raises(ValueError):
+        ob.place_order('1', 10.5, 4.4, order_type)
+
+
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_cancel_order(order_type):
     """
     Check that order cancels correctly
     """
     ob = OrderBook()
 
-    # first, place 10 orders with increasing prices
-    expected_orders = []
-    for i in range(1, 11):
-        order = {
-            'order_id': str(i),
-            'price': i,
-            'quantity': random.randint(1, 100),
-            'order_type': random.choice(['bid', 'ask'])
-        }
-        expected_orders.append(order)
-        ob.place_order(**order)
+    # firstly, place 5 asks and 5 bids with increasing prices
+    expected_orders = {'ask': [], 'bid': []}
+    for i in range(1, 6):
+        for order_type in ('ask', 'bid'):
+            order = {
+                'order_id': f'{order_type} {i}',
+                'price': i,
+                'quantity': random.randint(1, 100)
+            }
+            ob.place_order(**order, order_type=order_type)
+            expected_orders[order_type].append(order)
 
     # cancel order
-    ob.cancel_order('6')
-    del expected_orders[5]
-    assert ob.orders == expected_orders
-    assert ob.prices == [o['price'] for o in expected_orders]
+    ob.cancel_order(f'{order_type} 3')
+    del expected_orders[order_type][2]
+    assert ob.asks == expected_orders['ask']
+    assert ob.bids == expected_orders['bid']
 
 
-def test_cancel_non_existing_order():
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_cancel_non_existing_order(order_type):
     """
     Check that method raises ValueError if order_id does not exist
     (when there are no other orders, and when there are other orders with
@@ -105,12 +137,13 @@ def test_cancel_non_existing_order():
     ob = OrderBook()
     with pytest.raises(ValueError):
         ob.cancel_order('1')
-    ob.place_order('1', 10, 2, 'ask')
+    ob.place_order('1', 10, 2, order_type)
     with pytest.raises(ValueError):
         ob.cancel_order('2')
 
 
-def test_get_order_info():
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_get_order_info(order_type):
     """
     Check that method returns correct info about an order
     """
@@ -118,14 +151,14 @@ def test_get_order_info():
     order = {
         'order_id': '10',
         'price': random.randint(1, 10),
-        'quantity': random.randint(1, 100),
-        'order_type': random.choice(['bid', 'ask'])
+        'quantity': random.randint(1, 100)
     }
-    ob.place_order(**order)
+    ob.place_order(**order, order_type=order_type)
     assert ob.get_order_info('10') == order
 
 
-def test_get_info_non_existing_order():
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_get_info_non_existing_order(order_type):
     """
     Check that method raises ValueError if order_id does not exist
     (when there are no other orders, and when there are other orders with
@@ -134,6 +167,6 @@ def test_get_info_non_existing_order():
     ob = OrderBook()
     with pytest.raises(ValueError):
         ob.get_order_info('1')
-    ob.place_order('1', 10, 2, 'ask')
+    ob.place_order('1', 10, 2, order_type)
     with pytest.raises(ValueError):
         ob.get_order_info('2')
