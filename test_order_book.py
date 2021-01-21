@@ -1,5 +1,5 @@
-import pytest
 import random
+import pytest
 
 from order_book import OrderBook
 
@@ -111,14 +111,14 @@ def test_cancel_order(order_type):
     # firstly, place 5 asks and 5 bids with increasing prices
     expected_orders = {'ask': [], 'bid': []}
     for i in range(1, 6):
-        for order_type in ('ask', 'bid'):
+        for ot in ('ask', 'bid'):
             order = {
-                'order_id': f'{order_type} {i}',
+                'order_id': f'{ot} {i}',
                 'price': i,
                 'quantity': random.randint(1, 100)
             }
-            ob.place_order(**order, order_type=order_type)
-            expected_orders[order_type].append(order)
+            ob.place_order(**order, order_type=ot)
+            expected_orders[ot].append(order)
 
     # cancel order
     ob.cancel_order(f'{order_type} 3')
@@ -170,3 +170,107 @@ def test_get_info_non_existing_order(order_type):
     ob.place_order('1', 10, 2, order_type)
     with pytest.raises(ValueError):
         ob.get_order_info('2')
+
+
+def test_get_market_data_different_prices():
+    """
+    Check that method returns correct market data if all prices are different
+    """
+    ob = OrderBook()
+
+    # firstly, place 5 asks and 5 bids with increasing different prices
+    expected_market_data = {'asks': [], 'bids': []}
+    for i in range(1, 6):
+        for order_type in ('ask', 'bid'):
+            order = {
+                'price': i,
+                'quantity': random.randint(1, 100)
+            }
+            ob.place_order(**order, order_type=order_type,
+                           order_id=f'{order_type} {i}')
+            expected_market_data[order_type + 's'].append(order)
+
+    assert ob.get_market_data() == expected_market_data
+
+
+def place_orders_same_price(ob, price, n_orders, order_type):
+    """
+    Helper function, place n_orders with given price
+    into the order_book instance
+
+    :param ob: order_book instance
+    :param price: float
+    :param n_orders: number of orders with the same price
+    :param order_type: 'ask' or 'bid'
+    :return: total quantity of the places orders
+    """
+    quantity = 0
+    for _ in range(n_orders):
+        order = {
+            'price': price,
+            'quantity': random.randint(1, 100)
+        }
+        quantity += order['quantity']
+        ob.place_order(**order, order_type=order_type,
+                       order_id=str(random.random()))
+    return quantity
+
+
+@pytest.mark.parametrize('order_type', ['ask', 'bid'])
+def test_get_market_data_same_prices(order_type):
+    """
+    Check that method returns correct market data if all prices are the same
+    """
+    ob = OrderBook()
+    expected_market_data = {'asks': [], 'bids': []}
+
+    # firstly, place 5 orders with the same price
+    price = 10
+    quantity = place_orders_same_price(ob, price, 5, order_type)
+    expected_market_data[order_type + 's'].append({
+        'price': price,
+        'quantity': quantity
+    })
+
+    assert ob.get_market_data() == expected_market_data
+
+
+def test_get_market_data():
+    """
+    Check that method returns correct market data (some prices are different,
+    some the same; there are both asks and bids; highest price for bids is
+    greater than lowest price for asks)
+    """
+    ob = OrderBook()
+    expected_market_data = {'asks': [], 'bids': []}
+
+    # firstly, place 3 asks with the same price
+    price = 10
+    quantity = place_orders_same_price(ob, price, 3, 'ask')
+    expected_market_data['asks'].append({
+        'price': price,
+        'quantity': quantity
+    })
+    # then, place 3 bids with the same price
+    price = 5
+    quantity = place_orders_same_price(ob, price, 3, 'bid')
+    expected_market_data['bids'].append({
+        'price': price,
+        'quantity': quantity
+    })
+    # then, place 3 asks with the same price (lower than before)
+    price = 7
+    quantity = place_orders_same_price(ob, price, 3, 'ask')
+    expected_market_data['asks'].insert(0, {
+        'price': price,
+        'quantity': quantity
+    })
+    # then, place 3 bids with the same price (greater than before)
+    price = 8
+    quantity = place_orders_same_price(ob, price, 3, 'bid')
+    expected_market_data['bids'].append({
+        'price': price,
+        'quantity': quantity
+    })
+
+    assert ob.get_market_data() == expected_market_data

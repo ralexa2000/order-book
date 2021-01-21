@@ -103,3 +103,40 @@ class OrderBook:
             if order['order_id'] == order_id:
                 return order
         raise ValueError(f'Order_id \'{order_id}\' not found')
+
+    def get_market_data(self) -> typing.Dict:
+        """
+        Returns aggregated and sorted market data (iterates through self.asks
+        and self.bids in increasing order because they are already
+        sorted by price)
+
+        :return: market_data, e.g. {
+            'asks': [
+                {
+                    'price': <value>,
+                    'quantity': <value>
+                },
+                ...
+            ],
+            'bids': [...]
+        }
+        """
+        market_data = {
+            'asks': [],
+            'bids': []
+        }
+        for orders_list, order_type in \
+                zip((self.asks, self.bids), ('asks', 'bids')):
+            i = 0
+            while i < len(orders_list):
+                price = orders_list[i]['price']
+                quantity = orders_list[i]['quantity']
+                i += 1
+                while i < len(orders_list) and orders_list[i]['price'] == price:
+                    quantity += orders_list[i]['quantity']
+                    i += 1
+                market_data[order_type].append({
+                    'price': price,
+                    'quantity': quantity
+                })
+        return market_data
